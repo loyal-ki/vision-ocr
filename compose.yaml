@@ -1,0 +1,78 @@
+services:
+  azure-vision-runner:
+    image: azure-vision-api:base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    env_file:
+      - ./conf/dev.env
+    tty: true
+    working_dir: /app
+    stdin_open: true
+    container_name: azure-vision-runner
+    depends_on: 
+      - mysql
+      - redis
+    volumes:
+      - .:/app:cached
+      - poetry:/app/.docker/poetry
+      - site-packages:/usr/local/lib/python3.10/site-packages
+      - bin:/usr/local/bin
+
+  azure-vision-api:
+    image: azure-vision-api:develop
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    env_file:
+      - ./conf/dev.env
+    tty: true
+    working_dir: /app
+    stdin_open: true
+    container_name: azure-vision-api
+    restart: unless-stopped
+    ports:
+      - 8082:80
+      - 5678:5678
+    depends_on: 
+      - mysql
+      - redis
+    volumes:
+      - .:/app:cached
+
+  mysql:
+    image: mysql:8.0.23
+    platform: linux/amd64
+    container_name: azure-vision-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: azure-vision
+      MYSQL_USER: local
+      MYSQL_PASSWORD: local
+      TZ: 'Asia/Tokyo'
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./.docker/db/data:/var/lib/mysql
+      - ./.docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./.docker/db/sql:/docker-entrypoint-initdb.d
+    ports:
+      - 3306:3306
+
+
+  redis:
+    image: redis:7.0.6-alpine
+    container_name: azure-vision-redis
+    restart: unless-stopped
+    ports:
+      - 6380:6379
+
+volumes:
+  poetry:
+  site-packages:
+  bin:
+
+networks:
+  default:
+    name: azure-vision_backend_default
